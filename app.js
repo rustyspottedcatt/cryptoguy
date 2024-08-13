@@ -44,10 +44,10 @@ const server = http.createServer(async (req, res) => {
             const cryptoSymbol = option.value.toUpperCase();
 
             try {
-              const binanceData = await getBinanceData(cryptoSymbol);
-              const logoUrl = await getCryptoCompareLogoUrl(cryptoSymbol);
+              const coinMarketCapData = await getCoinMarketCapData(cryptoSymbol);
+              const logoUrl = await getCoinMarketCapLogoUrl(cryptoSymbol);
 
-              if (!binanceData) {
+              if (!coinMarketCapData) {
                 console.error(`Symbol not found: ${cryptoSymbol}`);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 return res.end(JSON.stringify({
@@ -58,11 +58,10 @@ const server = http.createServer(async (req, res) => {
                 }));
               }
 
-              const price = parseFloat(binanceData.lastPrice).toFixed(4);
-              const change24h = parseFloat(binanceData.priceChange).toFixed(4);
-              const change24hPercent = parseFloat(binanceData.priceChangePercent).toFixed(2);
-              const low24h = parseFloat(binanceData.lowPrice).toFixed(4);
-              const high24h = parseFloat(binanceData.highPrice).toFixed(4);
+              const price = parseFloat(coinMarketCapData.quote.USD.price).toFixed(4);
+              const change24h = parseFloat(coinMarketCapData.quote.USD.percent_change_24h).toFixed(2);
+              const low24h = parseFloat(coinMarketCapData.quote.USD.low_24h).toFixed(4);
+              const high24h = parseFloat(coinMarketCapData.quote.USD.high_24h).toFixed(4);
 
               const timestamp = new Date().toLocaleString("en-US", {
                 dateStyle: "short",
@@ -87,7 +86,7 @@ const server = http.createServer(async (req, res) => {
                         },
                         {
                           name: "24H Change",
-                          value: `${change24h > 0 ? '+' : ''}$${change24h} (${change24hPercent}%)`,
+                          value: `${change24h > 0 ? '+' : ''}${change24h}%`,
                           inline: false,
                         },
                         {
@@ -139,27 +138,35 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running and listening on port ${PORT}`);
 });
 
-async function getBinanceData(symbol) {
+async function getCoinMarketCapData(symbol) {
   try {
     const response = await axios.get(
-      `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol.toUpperCase()}USDT`
+      `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest`,
+      {
+        params: { symbol: symbol },
+        headers: { 'X-CMC_PRO_API_KEY': process.env.CMC_API_KEY }
+      }
     );
-    return response.data;
+    return response.data.data[symbol];
   } catch (error) {
-    console.error("Error fetching data from Binance:", error);
+    console.error("Error fetching data from CoinMarketCap:", error);
     return null;
   }
 }
 
-async function getCryptoCompareLogoUrl(symbol) {
+async function getCoinMarketCapLogoUrl(symbol) {
   try {
     const response = await axios.get(
-      `https://min-api.cryptocompare.com/data/all/coinlist?summary=true&api_key=f65ae9482c12aa30f67c93e6f399b096e42c41c3eae6f1cbff2da5899a9a9bbe`
+      `https://pro-api.coinmarketcap.com/v1/cryptocurrency/info`,
+      {
+        params: { symbol: symbol },
+        headers: { 'X-CMC_PRO_API_KEY': process.env.CMC_API_KEY }
+      }
     );
-    const coinData = response.data.Data[symbol.toUpperCase()];
-    return coinData ? `https://www.cryptocompare.com${coinData.ImageUrl}` : null;
+    const coinData = response.data.data[symbol];
+    return coinData ? coinData.logo : null;
   } catch (error) {
-    console.error("Error fetching logo from CryptoCompare:", error);
+    console.error("Error fetching logo from CoinMarketCap:", error);
     return null;
   }
 }
