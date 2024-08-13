@@ -3,24 +3,24 @@ import { verifyKey } from "discord-interactions";
 
 export function VerifyDiscordRequest(clientKey) {
   return function (req, res, buf) {
-    const signature = req.get("X-Signature-Ed25519");
-    const timestamp = req.get("X-Signature-Timestamp");
+    const signature = req.headers['x-signature-ed25519'];
+    const timestamp = req.headers['x-signature-timestamp'];
 
-    console.log(`Received signature: ${signature}`);
-    console.log(`Received timestamp: ${timestamp}`);
-    console.log(`Using client key: ${clientKey}`);
-
-    const isValidRequest = verifyKey(buf, signature, timestamp, clientKey);
-
-    if (!isValidRequest) {
-      console.error("Bad request signature. Verification failed.");
-      res.status(401).send("Bad request signature");
-      throw new Error("Bad request signature");
+    if (!signature || !timestamp) {
+      console.error('Missing signature or timestamp');
+      res.statusCode = 401;
+      return res.end('Bad request signature');
     }
 
-    console.log("Request verification successful.");
+    const isValidRequest = verifyKey(buf, signature, timestamp, clientKey);
+    if (!isValidRequest) {
+      console.error('Request verification failed');
+      res.statusCode = 401;
+      return res.end('Bad request signature');
+    }
   };
 }
+
 
 export async function DiscordRequest(endpoint, options) {
   const url = "https://discord.com/api/v10/" + endpoint;
